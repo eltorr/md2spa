@@ -1,0 +1,91 @@
+# md2spa -> GitHub Pages
+#
+# Written by `md2spa template github`. After committing this file, set
+# Settings -> Pages -> Build and deployment -> Source to "GitHub Actions".
+# The site then appears at https://<user>.github.io/<repo>/.
+#
+# Nothing to install. md2spa has zero runtime dependencies and ships in this repository
+# under src/, so every job runs straight from the checkout.
+#
+# No `base` setting is needed: md2spa defaults to `base: "auto"` and emits
+# document-relative URLs, so the same artifact works under the /<repo>/ prefix and at a
+# custom domain root without a rebuild.
+#
+# About the empty `static/.nojekyll` that ships with this template
+# ---------------------------------------------------------------
+# Jekyll silently drops any directory whose name begins with an underscore, and md2spa
+# emits its SPA payloads into `_spa/`. Without that marker file, client-side navigation
+# would 404 while the pre-rendered pages kept working -- a confusing, half-broken site.
+# This Actions-based workflow does not run Jekyll, so it is belt-and-braces; it starts
+# mattering the moment anyone switches Pages back to "Deploy from a branch".
+# Everything in static/ is copied verbatim to the site root, which is why it lands.
+
+name: Deploy documentation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Least privilege. `pages: write` and `id-token: write` are what deploy-pages needs to
+# mint its OIDC token; nothing here needs write access to the repository contents.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time. `cancel-in-progress: false` is deliberate -- interrupting a
+# half-finished Pages deployment can leave the site inconsistent, so queued runs wait.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  # Runs on pull requests as well, so a broken link never reaches the default branch.
+  # `--format github` turns each diagnostic into a workflow annotation, shown inline on
+  # the changed lines of the PR diff.
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Lint Markdown
+        run: node src/cli.js check --format github
+
+  build:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # md2spa does not need the base_path this emits -- `base: "auto"` handles the
+      # /<repo>/ prefix on its own -- but deploy-pages expects the Pages context to exist.
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Build site
+        run: node src/cli.js build --out dist
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    # Pull requests stop after lint + build; only the default branch publishes.
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

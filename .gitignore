@@ -1,0 +1,13 @@
+# md2spa has zero runtime dependencies, but tooling may still create these.
+node_modules/
+
+# Build output. `dist` is the default outDir; `public` is what GitLab Pages expects.
+dist/
+public/
+
+# OS / editor noise
+.DS_Store
+
+# Logs and caches
+*.log
+.cache/

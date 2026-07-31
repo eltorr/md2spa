@@ -1,0 +1,63 @@
+# md2spa -> GitLab Pages
+#
+# Written by `md2spa template gitlab`. Commit it and push to the default branch;
+# the site appears at https://<namespace>.gitlab.io/<project>/ within a minute or two.
+#
+# Nothing to install. md2spa has zero runtime dependencies and ships in this repository
+# under src/, so both jobs run straight from the checkout -- no npm install, no lockfile,
+# no registry, and no network access. That also means the pipeline cannot break because
+# a transitive dependency was yanked.
+#
+# Why there is no `base` setting
+# ------------------------------
+# GitLab serves project Pages under a /<project>/ path prefix, which is the classic reason
+# a static site "works locally and 404s in CI". md2spa defaults to `base: "auto"` and
+# emits every asset and link as a document-relative URL (../../assets/style.1a2b3c4d.css)
+# derived from the page's own depth. The same artifact is therefore valid at /, at
+# /<project>/, and inside a subfolder of a larger site. Leave `base` alone.
+#
+# The one thing worth setting is `siteUrl` in md2spa.config.json. It is used for
+# canonical links, Open Graph tags and sitemap.xml -- all of which need an absolute
+# origin that cannot be derived at build time.
+
+image: node:20-alpine
+
+stages: [lint, deploy]
+
+default:
+  interruptible: true
+
+# ---------------------------------------------------------------------------------------
+# lint -- run the Markdown linter and publish the result as a GitLab test report
+# ---------------------------------------------------------------------------------------
+# `--format junit` writes JUnit XML that GitLab renders in the merge-request widget and
+# the pipeline's Tests tab, one test case per Markdown file. The job exits non-zero on
+# errors, so a broken relative link or a malformed table fails the pipeline before it can
+# reach the site. Add `--strict` to fail on warnings too.
+lint:
+  stage: lint
+  script:
+    - node src/cli.js check --format junit > report.xml
+  artifacts:
+    # `when: always` matters -- without it a failing job uploads no report and the merge
+    # request shows "no test results" instead of the actual problem.
+    when: always
+    expire_in: 1 week
+    paths: [report.xml]
+    reports:
+      junit: report.xml
+
+# ---------------------------------------------------------------------------------------
+# pages -- build the site and let GitLab Pages serve it
+# ---------------------------------------------------------------------------------------
+# GitLab publishes exactly the `public` directory from this job's artifacts, which is why
+# the build is redirected there with `--out public` rather than the default `dist`.
+pages:
+  stage: deploy
+  script:
+    - node src/cli.js build --out public
+  artifacts:
+    paths: [public]
+  rules:
+    # Feature branches lint but do not deploy.
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

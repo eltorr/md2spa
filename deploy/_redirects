@@ -1,0 +1,17 @@
+# md2spa -> Netlify / Cloudflare Pages `_redirects`
+#
+# Copy this file into the *output* directory (`static/_redirects` works: everything under
+# staticDir is copied verbatim into outDir, so it lands next to index.html).
+#
+# Use this only if you are not using netlify.toml -- that file already carries the same
+# rule, and mixing the two makes precedence hard to reason about.
+#
+# md2spa pre-renders every route to its own index.html, so static file serving already
+# answers every real URL. This catch-all exists purely for genuine misses, and it must be
+# the last rule: both Netlify and Cloudflare evaluate top to bottom, first match wins.
+#
+# Status 404 rather than 200 is deliberate. The generated 404.html re-derives the site
+# base at runtime from its embedded route list, so it renders correctly at any depth --
+# and a real miss should not be reported to crawlers as a success.
+
+/*    /404.html   404

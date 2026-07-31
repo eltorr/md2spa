@@ -1,0 +1,23 @@
+# Matches the house style described in SPEC.md section 0.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 2
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Markdown uses two trailing spaces as a hard line break (MD065 knows the difference).
+[*.md]
+trim_trailing_whitespace = false
+
+[*.{yml,yaml,json,jsonc,toml}]
+indent_size = 2
+
+[Makefile]
+indent_style = tab
+
+[LICENSE]
+insert_final_newline = true

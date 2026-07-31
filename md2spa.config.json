@@ -1,0 +1,57 @@
+{
+  "title": "md2spa",
+  "description": "A zero-dependency Markdown to static documentation site generator. The folder tree is the navigation.",
+  "lang": "en",
+  "base": "auto",
+  "siteUrl": "https://eltorr.github.io/md2spa",
+  "contentDir": "content",
+  "outDir": "dist",
+  "staticDir": "static",
+  "cleanUrls": true,
+  "spa": true,
+  "search": true,
+  "highlight": true,
+  "strict": false,
+  "buildDate": null,
+  "toc": {
+    "minDepth": 2,
+    "maxDepth": 3
+  },
+  "nav": {
+    "collapseDepth": 1,
+    "sort": "auto",
+    "filter": true
+  },
+  "theme": {
+    "accent": "#0b6bcb",
+    "accentDark": "#7cc4ff",
+    "defaultMode": "auto",
+    "font": "",
+    "monoFont": "",
+    "logo": "logo.svg",
+    "favicon": "favicon.svg"
+  },
+  "repo": {
+    "url": "https://github.com/eltorr/md2spa",
+    "label": "GitHub",
+    "editBase": "https://github.com/eltorr/md2spa/edit/main/content"
+  },
+  "footer": {
+    "text": "md2spa is MIT licensed and has no runtime dependencies.",
+    "links": [
+      {
+        "label": "Repository",
+        "url": "https://github.com/eltorr/md2spa"
+      },
+      {
+        "label": "Issues",
+        "url": "https://github.com/eltorr/md2spa/issues"
+      },
+      {
+        "label": "CommonMark",
+        "url": "https://commonmark.org/"
+      }
+    ]
+  },
+  "rules": {}
+}

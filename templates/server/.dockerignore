@@ -1,0 +1,14 @@
+# Keep the build context small and the image reproducible.
+.git
+.gitignore
+node_modules
+dist
+public
+site
+*.log
+.DS_Store
+.github
+.gitlab-ci.yml
+Dockerfile
+docker-compose.yml
+.dockerignore

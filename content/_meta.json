@@ -1,0 +1,9 @@
+{
+  "order": [
+    "getting-started",
+    "structuring",
+    "writing",
+    "reference",
+    "deploying"
+  ]
+}

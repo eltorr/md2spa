@@ -1,0 +1,43 @@
+{
+  "name": "md2spa",
+  "version": "1.0.0",
+  "description": "Zero-dependency Markdown -> static SPA documentation site generator. Folder structure is the navigation.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "bin": {
+    "md2spa": "./src/cli.js"
+  },
+  "main": "./src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./markdown": "./src/markdown/parser.js"
+  },
+  "files": [
+    "src",
+    "templates",
+    "deploy",
+    "README.md",
+    "SPEC.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "node src/cli.js build",
+    "dev": "node src/cli.js dev",
+    "check": "node src/cli.js check",
+    "test": "node --test test/*.test.js",
+    "test:watch": "node --test --watch test/*.test.js"
+  },
+  "keywords": [
+    "markdown",
+    "static-site-generator",
+    "documentation",
+    "spa",
+    "gitlab-pages",
+    "zero-dependency"
+  ],
+  "dependencies": {},
+  "devDependencies": {}
+}

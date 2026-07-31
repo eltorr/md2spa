@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 48" width="96" height="48" role="img" aria-label="md2spa">
+  <title>md2spa</title>
+  <rect x="1.5" y="7.5" width="93" height="33" rx="7" fill="none" stroke="#3b82f6" stroke-width="3"/>
+  <path d="M12 33V15l9 11 9-11v18" fill="none" stroke="#3b82f6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M39 15h9l-9 18h9" fill="none" stroke="#3b82f6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M60 18l-7 6 7 6" fill="none" stroke="#3b82f6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M70 33l6-18" fill="none" stroke="#3b82f6" stroke-width="4" stroke-linecap="round"/>
+  <path d="M83 18l7 6-7 6" fill="none" stroke="#3b82f6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

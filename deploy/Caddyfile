@@ -1,0 +1,55 @@
+# md2spa -> Caddy
+#
+#   caddy run --config deploy/Caddyfile
+#   docker run --rm -p 8080:80 -v "$PWD/dist:/srv/site:ro" \
+#     -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" caddy:alpine
+#
+# Replace `:80` with `docs.example.com` to get automatic HTTPS. Everything else stays
+# the same -- and because md2spa defaults to `base: "auto"`, so does the build.
+
+:80 {
+  root * /srv/site
+
+  # zstd first: Caddy negotiates in the order listed.
+  encode zstd gzip
+
+  # -------------------------------------------------------------------------
+  # Caching -- later `header` directives override earlier ones for matching requests
+  # -------------------------------------------------------------------------
+  # Default: revalidate. Page HTML, the SPA payloads under /_spa/ and search-index.json
+  # are rewritten in place on every build, so a stale cache means a stale page body.
+  header Cache-Control "no-cache"
+  header X-Content-Type-Options "nosniff"
+  header Referrer-Policy "strict-origin-when-cross-origin"
+
+  # Content-hashed assets (style.1a2b3c4d.css, app.1a2b3c4d.js) are immutable: the
+  # filename changes whenever the bytes do.
+  @immutable path_regexp immutable ^/assets/.+\.[0-9a-f]{8}\.[a-z0-9]+$
+  header @immutable Cache-Control "public, max-age=31536000, immutable"
+
+  # Unhashed files copied verbatim from staticDir: short cache, always revalidate.
+  @static path *.png *.jpg *.jpeg *.gif *.webp *.avif *.ico *.svg *.woff *.woff2 *.pdf *.zip
+  header @static Cache-Control "public, max-age=3600, must-revalidate"
+
+  # -------------------------------------------------------------------------
+  # Routing
+  # -------------------------------------------------------------------------
+  # Every route is pre-rendered as its own index.html, and file_server serves a
+  # directory's index automatically (plus the canonical redirect that adds the
+  # trailing slash), so plain static serving answers every real URL.
+  file_server
+
+  # Not-found fallback. The generated 404.html re-derives the site base from an
+  # embedded route list, so it renders correctly however deep the missing URL was.
+  # Non-404 errors fall through to a plain text response rather than the docs shell.
+  handle_errors {
+    @notfound expression {err.status_code} == 404
+    rewrite @notfound /404.html
+    file_server
+  }
+
+  log {
+    output stderr
+    format console
+  }
+}

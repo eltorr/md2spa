@@ -1,0 +1,64 @@
+# md2spa -> Netlify
+#
+# Copy to the root of your repository as `netlify.toml`.
+# No `base` setting is needed: `base: "auto"` (the default) emits document-relative URLs,
+# so the same artifact works at a Netlify subdomain, a custom domain and a deploy preview.
+
+[build]
+  command = "node src/cli.js build"
+  publish = "dist"
+
+[build.environment]
+  # md2spa requires Node >= 18; 20 is the tested baseline. There is nothing to install.
+  NODE_VERSION = "20"
+
+# Deploy previews and branch deploys get the linter as well, so a broken internal link
+# shows up in the deploy log rather than in the published site.
+[context.deploy-preview]
+  command = "node src/cli.js check && node src/cli.js build"
+
+[context.branch-deploy]
+  command = "node src/cli.js check && node src/cli.js build"
+
+# ---------------------------------------------------------------------------
+# SPA / clean-URL fallback
+# ---------------------------------------------------------------------------
+# md2spa pre-renders every route to its own index.html, so Netlify's static file
+# serving already answers every real URL -- this rule only catches genuine misses.
+# It must be last: Netlify evaluates redirects top to bottom, first match wins.
+# Status 404 (not 200) is deliberate; the generated 404.html re-derives the site base
+# from its embedded route list, so it renders correctly at any depth.
+[[redirects]]
+  from = "/*"
+  to = "/404.html"
+  status = 404
+
+# ---------------------------------------------------------------------------
+# Caching
+# ---------------------------------------------------------------------------
+# Default: revalidate everything. Later, more specific rules override this.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Hashed filenames (style.1a2b3c4d.css, app.1a2b3c4d.js) can never change content
+# without changing name, so they are safe to cache forever.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# SPA route payloads and the search index are NOT content-hashed -- they are fetched by
+# URL at runtime, so they must revalidate or the router will serve a stale page body.
+[[headers]]
+  for = "/_spa/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/search-index.json"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
