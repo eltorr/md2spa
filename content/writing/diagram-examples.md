@@ -189,8 +189,11 @@ A state machine drawn as a flowchart. `stateDiagram` is not supported yet — se
 [what is not supported](diagrams.md#what-is-not-supported) — and a flowchart carries the same
 information.
 
+This one is `TD` rather than `LR` on purpose; [direction](#direction-is-a-real-choice) below
+explains why.
+
 ```mermaid
-flowchart LR
+flowchart TD
   Draft --> Submitted
   Submitted --> Review{Reviewer decision}
   Review -->|approve| Approved
@@ -225,6 +228,32 @@ SVG, and the stylesheet decides the colour. That is what keeps a diagram legible
 switches to dark mode.
 
 Available classes: `primary`, `secondary`, `success`, `warning`, `danger`, `info`, `muted`.
+
+## Direction is a real choice
+
+`TD` and `LR` are not interchangeable, and the difference is largest for graphs with feedback
+loops. Every back edge has to route around the nodes between its endpoints, so in `LR` a loop
+returning to the start spans the full width of the diagram.
+
+The approval lifecycle above has three of them — `reject`, `request changes`, and the return
+from `Rejected` to `Draft`. Laid out each way:
+
+| Direction | Size | In a documentation column |
+|:---|:---|:---|
+| `flowchart LR` | 1058×185 | Scrolls sideways; roughly half the states sit off-screen |
+| `flowchart TD` | 405×605 | Fits; the whole lifecycle is visible at once |
+
+`TD` costs about 420px of height and buys back the ability to see the diagram in one glance.
+That is usually the right trade: pages already scroll down, and a reader who has to scroll
+*inside* a figure often does not realise there is more to see.
+
+Rules of thumb that hold up more often than not:
+
+- **Feedback loops, retries, state machines** → `TD`. Back edges stay short.
+- **Pipelines and request flows that read as a sentence** → `LR`, provided the chain is short
+  enough to fit. Past roughly six nodes it will not be.
+- **Wide-and-flat beats tall-and-thin** only while it still fits the column. After that the
+  reader loses more from the scrolling than they gain from the shape.
 
 ## Keeping large diagrams readable
 
