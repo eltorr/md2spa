@@ -1,6 +1,6 @@
 ---
 title: Diagnostics
-description: All 44 md2spa rule codes, what triggers each one, and how to fix it.
+description: All 49 md2spa rule codes, what triggers each one, and how to fix it.
 ---
 
 # Diagnostics
@@ -132,6 +132,19 @@ full policy is in [Custom HTML](../writing/advanced/custom-html.md).
 | `MD072` | warning | The same footnote identifier defined more than once | Rename one of them. Only the last definition is kept |
 
 See [Footnotes](../writing/advanced/footnotes.md).
+
+## Diagrams
+
+| Code | Severity | Triggered by | How to fix |
+|:---|:---|:---|:---|
+| `MD080` | info | A `mermaid` fence whose diagram type md2spa cannot draw, such as `gantt` or `classDiagram`, or one that parses but declares no nodes | Nothing. The block renders as code. A placeholder fence is deliberately not an error, so it cannot fail a `--strict` build |
+| `MD081` | error | A line inside a `mermaid` fence that the parser cannot read, or an `activate` with no `deactivate` | Read the message: it names what it expected at that column. Only the documented subset is accepted |
+| `MD082` | warning | A node or participant used without being declared; it was created automatically | Declare it. A mistyped id becomes a second node rather than an error, which is the bug this rule exists to catch |
+| `MD083` | info | A `%%{init}%%` directive, ignored | Remove it. Colour and layout come from the theme; use `theme.diagram` or your own CSS |
+| `MD084` | warning | A diagram over the size limits: 300 nodes, 600 edges, 60 participants, 400 messages | Split it. Over the limit the fence renders as a code block instead |
+
+Only `MD081` is fatal. Every other diagram problem degrades to a code block, so a diagram
+md2spa cannot draw never blocks a build. See [Diagrams](../writing/diagrams.md).
 
 ## Configuration and site
 

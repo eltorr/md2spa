@@ -39,6 +39,8 @@ export const DEFAULT_CONFIG = Object.freeze({
   spa: true,
   search: true,
   highlight: true,
+  /** Draw `mermaid`/`mmd` fences as inline SVG; `false` leaves them as code blocks. */
+  mermaid: true,
   strict: false,
   buildDate: null,
 
@@ -53,6 +55,19 @@ export const DEFAULT_CONFIG = Object.freeze({
     monoFont: '',
     logo: '',
     favicon: '',
+    /**
+     * Optional diagram palette. Each non-empty value is injected as the matching `--dg-*`
+     * custom property on `.diagram`, so it wins over the stylesheet's default binding
+     * without the user having to know the internals. Empty means "inherit the theme".
+     */
+    diagram: {
+      nodeBg: '',
+      nodeBorder: '',
+      nodeFg: '',
+      edge: '',
+      accent: '',
+      fontSize: '',
+    },
   },
 
   repo: { url: '', label: '', editBase: '' },
@@ -79,6 +94,7 @@ const SCHEMA = {
   spa: 'boolean',
   search: 'boolean',
   highlight: 'boolean',
+  mermaid: 'boolean',
   strict: 'boolean',
   buildDate: 'string?',
   toc: {
@@ -98,6 +114,14 @@ const SCHEMA = {
     monoFont: 'string',
     logo: 'string',
     favicon: 'string',
+    diagram: {
+      nodeBg: 'string',
+      nodeBorder: 'string',
+      nodeFg: 'string',
+      edge: 'string',
+      accent: 'string',
+      fontSize: 'string',
+    },
   },
   repo: {
     url: 'string',
@@ -215,6 +239,12 @@ export function normalizeConfig(config, bag) {
   }
 
   if (out.siteUrl) out.siteUrl = String(out.siteUrl).replace(/\/+$/, '');
+
+  // `theme.diagram` is one level deeper than the loop above reaches, and the same "an
+  // author's typo must not crash normalisation" rule applies to it.
+  if (!out.theme.diagram || typeof out.theme.diagram !== 'object' || Array.isArray(out.theme.diagram)) {
+    out.theme.diagram = deepMerge({}, DEFAULT_CONFIG.theme.diagram);
+  }
 
   if (!['auto', 'light', 'dark'].includes(out.theme.defaultMode)) {
     bag?.add('CFG001', { line: 1, column: 1 },

@@ -85,6 +85,13 @@ export const RULES = Object.freeze({
   MD071: { severity: 'info',    title: 'unreferenced footnote definition' },
   MD072: { severity: 'warning', title: 'duplicate footnote definition' },
 
+  // --- Mermaid diagrams ---------------------------------------------------------
+  MD080: { severity: 'info',    title: 'unsupported mermaid diagram type' },
+  MD081: { severity: 'error',   title: 'mermaid syntax error' },
+  MD082: { severity: 'warning', title: 'undeclared mermaid node or participant' },
+  MD083: { severity: 'info',    title: 'mermaid init directive ignored' },
+  MD084: { severity: 'warning', title: 'mermaid diagram exceeds the size limits' },
+
   // --- Config / site ------------------------------------------------------------
   CFG001: { severity: 'error',   title: 'config value has the wrong type' },
   CFG002: { severity: 'warning', title: 'unknown config key' },

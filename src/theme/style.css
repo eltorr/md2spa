@@ -2818,3 +2818,541 @@ li.task-list__item {
     display: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * 21. Diagrams — build-time Mermaid SVG
+ *
+ *    The SVG the mermaid renderers emit carries `class` and nothing
+ *    else: no `style=`, no `fill=`/`stroke=` literals. Every colour, weight, font
+ *    and dash pattern in a diagram therefore resolves *here*. That is the whole
+ *    reason the subsystem draws its own SVG instead of shipping mermaid.js — a
+ *    diagram follows the theme toggle, picks up config.theme, prints legibly and
+ *    stays overridable, none of which a pre-painted third-party render can do.
+ *
+ *    Two layers, same split as the admonitions above:
+ *      .diagram { --dg-* }   the public palette — retheme by rebinding these
+ *      .dg-*                 element classes, which only ever read a --dg-* value
+ *
+ *    Semantic node classes (`classDef` / `:::name`) rebind the three node
+ *    variables on the <g>, exactly as .admonition--* rebinds --adm-fg/--adm-bg,
+ *    so one rule per hue restyles fill, border and label together. Raw `fill:`
+ *    values written in the Mermaid source are deliberately never honoured.
+ *
+ *    Two conventions this sheet must respect, because they are geometry and the
+ *    renderers own geometry:
+ *      - `text-anchor` is never set here. render/*.js emits it as an attribute on
+ *        every single <text>, chosen per label -- centred inside a node, but
+ *        `start` for a subgraph title, an `else`/`and` divider caption and a
+ *        self-message. A CSS declaration beats a presentation attribute, so a
+ *        rule here would silently overrule the layout that positioned the text
+ *        and push those three off the left of the viewBox;
+ *      - --dg-font-size is the size measureText() was given at build time. The
+ *        layout is computed from those metrics and CSS cannot re-measure, so
+ *        changing one without the other clips labels.
+ * ------------------------------------------------------------------------*/
+
+/* No `margin: 0` here, for the reason spelled out at .code: the base reset already
+ * zeroes <figure>, and re-declaring it would out-cascade the `.md > * + *` rhythm. */
+.diagram {
+  /* Palette. Every value derives from a token declared in §1/§2, so a diagram is
+   * already right in both themes before the dark-mode block further down. */
+  --dg-node-bg: var(--bg-subtle);
+  /* Same treatment as --dg-edge below, and for the same reason: --border-strong is a
+   * chrome hairline, and at 1.5px it measures 1.46:1 against white and 1.70:1 against the
+   * dark surface -- under the 3:1 floor WCAG sets for meaningful non-text. Pulling it toward
+   * --text-muted reaches 3.22:1 and 4.60:1 without turning the outline into a border. */
+  --dg-node-border: color-mix(in srgb, var(--text-muted) 62%, var(--border-strong));
+  --dg-node-fg: var(--text);
+  /* --border-strong on its own is a chrome hairline; at 1.5px across white it
+   * reads as absent, and an edge nobody can follow is not a diagram. Pulling it
+   * toward --text-muted keeps the restraint and buys back the contrast. */
+  --dg-edge: color-mix(in srgb, var(--text-muted) 62%, var(--border-strong));
+  --dg-edge-label-bg: var(--bg);
+  /* A wash rather than a surface colour: it has to sit correctly on whatever the
+   * figure background is, and it deepens per nesting level (see [data-depth]). */
+  --dg-subgraph-bg: color-mix(in srgb, var(--text) 3.5%, transparent);
+  --dg-subgraph-border: var(--border);
+  --dg-subgraph-fg: var(--text-muted);
+  --dg-accent: var(--accent);
+  /* The amber tint the admonitions use, but flattened onto the figure background rather
+   * than left translucent: a note is a plate, and `--hue-amber-bg` at 10% alpha lets the
+   * lifelines and activation bars it covers show straight through its own text. */
+  --dg-note-bg: color-mix(in srgb, var(--hue-amber-fg) 11%, var(--bg));
+  --dg-note-border: color-mix(in srgb, var(--hue-amber-fg) 32%, transparent);
+  --dg-font: var(--font-sans);
+  --dg-font-size: var(--fs-sm);
+  --dg-stroke: 1.5px;
+
+  /* Derived from the above; separate only so the block a user is told to edit
+   * stays short. Rebinding --dg-edge or --dg-accent moves these with it. */
+  --dg-lifeline: color-mix(in srgb, var(--dg-edge) 70%, transparent);
+  --dg-activation-bg: var(--accent-soft);
+  --dg-activation-border: var(--accent-line);
+  --dg-block-border: var(--border-strong);
+  --dg-block-tab-bg: var(--surface-2);
+  --dg-label-fg: var(--text-muted);
+
+  padding: var(--sp-5) var(--sp-4);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  /* The figure is the scrollport, never the page: a diagram wider than the
+   * reading measure scrolls inside its own box. */
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+
+/* Flowcharts put their arrowheads right on the drawing's bounding box and need
+ * the whole gutter; sequence diagrams spend their width on participant columns
+ * and can give some of it back before a scrollbar has to appear. */
+.diagram--flowchart {
+  padding-inline: var(--sp-4);
+}
+
+.diagram--sequence {
+  padding-inline: var(--sp-3);
+}
+
+.diagram::-webkit-scrollbar {
+  height: 10px;
+}
+
+.diagram::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border: 3px solid var(--bg);
+  border-radius: 999px;
+}
+
+/* Inside an admonition the figure sits on a tint, so it and its label plates move
+ * to the raised surface — same adjustment §16 already makes for .code/.table-wrap. */
+.admonition .diagram {
+  --dg-edge-label-bg: var(--surface);
+  --dg-note-bg: color-mix(in srgb, var(--hue-amber-fg) 11%, var(--surface));
+  background-color: var(--surface);
+}
+
+.diagram__svg {
+  display: block;
+  margin-inline: auto;
+  max-width: 100%;
+  height: auto;
+  /* A diagram narrower than the column scales harmlessly to fit. One that is wider is
+   * tagged `data-wide` at build time and opts out below, because scaling it far enough to
+   * fit renders its labels too small to read -- the figure scrolls instead. */
+  font-family: var(--dg-font);
+  font-size: var(--dg-font-size);
+  /* Diagrams are all hairlines and diagonals; snapping them to the pixel grid
+   * bends arrowheads off their shape outlines. */
+  shape-rendering: geometricPrecision;
+}
+
+/* Wider than the content column: keep the intrinsic size and let `.diagram`'s existing
+ * `overflow-x: auto` do the work. Without this, `max-width: 100%` above guarantees the
+ * SVG never exceeds its container, so that scroll could never engage. */
+.diagram[data-wide] .diagram__svg {
+  max-width: none;
+}
+
+
+/* Scaling a 900px flowchart into a phone-width column turns 13px labels into 5px
+ * ones. Below the point where that starts to bite, stop scaling and scroll. */
+@media (max-width: 48rem) {
+  .diagram__svg {
+    max-width: none;
+  }
+}
+
+/* Paint fallback. Unclassed geometry — an interior rule on a cylinder, a detail
+ * stroke the renderer adds later — would otherwise land on the SVG default of
+ * solid black. Zero specificity via :where(), so every rule below still wins. */
+:where(.diagram__svg) :where(path, rect, circle, ellipse, polygon, polyline, line) {
+  fill: none;
+  stroke: var(--dg-node-border);
+  stroke-width: var(--dg-stroke);
+}
+
+:where(.diagram__svg) :where(text) {
+  fill: var(--dg-node-fg);
+}
+
+/* Markers do not inherit the paint of the element that references them, so an
+ * arrowhead has to carry its own. Filled is the default; the open, cross and
+ * circle heads are outlines. */
+.diagram__svg marker > * {
+  fill: var(--dg-edge);
+  stroke: var(--dg-edge);
+  stroke-width: var(--dg-stroke);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.diagram__svg .dg-marker--cross,
+.diagram__svg .dg-marker--circle {
+  fill: none;
+}
+
+/* Nodes ----------------------------------------------------------------
+ *
+ * The `.dg-node--<shape>` modifiers (rect, round, stadium, subroutine, cylinder,
+ * circle, diamond, hexagon, parallelogram, parallelogram-alt, flag) carry no
+ * paint on purpose: the shape is entirely in the path the layout computed, and
+ * giving one of them its own fill would mean the same node changed colour when
+ * an author edited its brackets. They are left as author hooks. Likewise the
+ * .dg-nodes / .dg-edges / .dg-subgraphs groups, which only exist for z-order. */
+
+.diagram .dg-node__shape {
+  fill: var(--dg-node-bg);
+  stroke: var(--dg-node-border);
+  stroke-width: var(--dg-stroke);
+  stroke-linejoin: round;
+  transition: stroke var(--dur-1) var(--ease);
+}
+
+/* The only interactive affordance in a diagram: it helps trace a node in a dense
+ * graph, and it costs nothing when there is no pointer. */
+.diagram .dg-node:hover .dg-node__shape {
+  stroke: color-mix(in srgb, var(--dg-accent) 55%, var(--dg-node-border));
+}
+
+.diagram .dg-node__label {
+  fill: var(--dg-node-fg);
+  font-weight: 500;
+  letter-spacing: -0.006em;
+}
+
+/* Semantic node classes ------------------------------------------------
+ *
+ * The documented default set for `classDef name …` / `A:::name`:
+ *
+ *   primary    accent      the subject of the diagram
+ *   secondary  purple      a supporting actor
+ *   success    green       a terminal "ok" state
+ *   warning    amber       a state that needs attention
+ *   danger     red         a failure or destructive step
+ *   info       cyan        an aside, an external system
+ *   muted      gray        deliberately de-emphasised
+ *
+ * Any other name (`:::mine`) simply keeps the default node look — the class is
+ * still emitted, so a site stylesheet can define it in three lines exactly the
+ * way these seven are defined. Colour is never the only signal: shape and label
+ * carry the meaning, hue only reinforces it. */
+
+.diagram .node--primary,
+.diagram .node--secondary,
+.diagram .node--success,
+.diagram .node--warning,
+.diagram .node--danger,
+.diagram .node--info,
+.diagram .node--muted {
+  --dg-node-bg: var(--dg-hue-bg);
+  --dg-node-fg: var(--dg-hue-fg);
+  --dg-node-border: color-mix(in srgb, var(--dg-hue-fg) 38%, transparent);
+}
+
+.diagram .node--primary {
+  --dg-hue-fg: var(--accent-strong);
+  --dg-hue-bg: var(--accent-soft);
+}
+
+.diagram .node--secondary {
+  --dg-hue-fg: var(--hue-purple-fg);
+  --dg-hue-bg: var(--hue-purple-bg);
+}
+
+.diagram .node--success {
+  --dg-hue-fg: var(--hue-green-fg);
+  --dg-hue-bg: var(--hue-green-bg);
+}
+
+.diagram .node--warning {
+  --dg-hue-fg: var(--hue-amber-fg);
+  --dg-hue-bg: var(--hue-amber-bg);
+}
+
+.diagram .node--danger {
+  --dg-hue-fg: var(--hue-red-fg);
+  --dg-hue-bg: var(--hue-red-bg);
+}
+
+.diagram .node--info {
+  --dg-hue-fg: var(--hue-cyan-fg);
+  --dg-hue-bg: var(--hue-cyan-bg);
+}
+
+.diagram .node--muted {
+  --dg-hue-fg: var(--hue-gray-fg);
+  --dg-hue-bg: var(--hue-gray-bg);
+}
+
+/* Edges ----------------------------------------------------------------- */
+
+.diagram .dg-edge__line {
+  fill: none;
+  stroke: var(--dg-edge);
+  stroke-width: var(--dg-stroke);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* --arrow, --open, --cross and --circle differ only in their marker, which the
+ * <defs> block above already paints; only these two change the line itself. */
+.diagram .dg-edge--dotted .dg-edge__line {
+  stroke-dasharray: 5 4;
+}
+
+.diagram .dg-edge--thick .dg-edge__line {
+  stroke-width: calc(var(--dg-stroke) * 2);
+}
+
+/* An opaque plate behind the label, so the edge does not run through the text.
+ * The renderer sizes it; `rx` is a CSS geometry property in SVG2 and degrades to
+ * square corners where it is not supported, which is the right failure. */
+.diagram .dg-edge__label-bg,
+.diagram .dg-message__label-bg {
+  fill: var(--dg-edge-label-bg);
+  stroke: none;
+  rx: 3px;
+  ry: 3px;
+}
+
+.diagram .dg-edge__label {
+  fill: var(--dg-label-fg);
+  font-size: calc(var(--dg-font-size) * 0.92);
+}
+
+/* Subgraphs -------------------------------------------------------------- */
+
+.diagram .dg-subgraph__box {
+  fill: var(--dg-subgraph-bg);
+  stroke: var(--dg-subgraph-border);
+  stroke-width: 1px;
+  rx: 8px;
+  ry: 8px;
+}
+
+/* Nesting has to stay readable without a shadow to separate the levels, so each
+ * one deepens the wash. Direct-child selectors keep a nested <g> from restyling
+ * its parent's box, whether the renderer emits the groups flat or nested. */
+.diagram .dg-subgraph[data-depth='1'] > .dg-subgraph__box {
+  fill: color-mix(in srgb, var(--text) 7%, transparent);
+}
+
+.diagram .dg-subgraph[data-depth='2'] > .dg-subgraph__box {
+  fill: color-mix(in srgb, var(--text) 10%, transparent);
+}
+
+/* Deeper than three and the wash would swamp the nodes; hold it there. */
+.diagram .dg-subgraph[data-depth='3'] > .dg-subgraph__box,
+.diagram .dg-subgraph[data-depth='4'] > .dg-subgraph__box,
+.diagram .dg-subgraph[data-depth='5'] > .dg-subgraph__box {
+  fill: color-mix(in srgb, var(--text) 13%, transparent);
+}
+
+/* The one label anchored at its start: a title band reads left-aligned. */
+.diagram .dg-subgraph__title {
+  fill: var(--dg-subgraph-fg);
+  font-size: calc(var(--dg-font-size) * 0.92);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+/* Sequence diagrams ------------------------------------------------------ */
+
+.diagram .dg-lifeline {
+  fill: none;
+  stroke: var(--dg-lifeline);
+  stroke-width: 1px;
+  stroke-dasharray: 3 4;
+}
+
+.diagram .dg-participant__box {
+  fill: var(--dg-node-bg);
+  stroke: var(--dg-node-border);
+  stroke-width: var(--dg-stroke);
+  rx: 6px;
+  ry: 6px;
+}
+
+.diagram .dg-participant__label {
+  fill: var(--dg-node-fg);
+  font-weight: 550;
+}
+
+/* Activation bars are the one place accent is spent in a sequence diagram: they
+ * are what the eye follows down the page. */
+.diagram .dg-activation {
+  fill: var(--dg-activation-bg);
+  stroke: var(--dg-activation-border);
+  stroke-width: 1px;
+}
+
+.diagram .dg-message__line {
+  fill: none;
+  stroke: var(--dg-edge);
+  stroke-width: var(--dg-stroke);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.diagram .dg-message--dotted .dg-message__line {
+  stroke-dasharray: 5 4;
+}
+
+.diagram .dg-message__label {
+  fill: var(--dg-node-fg);
+}
+
+.diagram .dg-note__box {
+  fill: var(--dg-note-bg);
+  stroke: var(--dg-note-border);
+  stroke-width: 1px;
+  rx: 4px;
+  ry: 4px;
+}
+
+.diagram .dg-note__label {
+  fill: var(--dg-node-fg);
+  font-size: calc(var(--dg-font-size) * 0.94);
+}
+
+/* Frames recede: they are scaffolding around the messages, not content, so they
+ * stay at a plain 1px while nodes and messages keep the 1.5px hairline. */
+.diagram .dg-block__frame {
+  fill: none;
+  stroke: var(--dg-block-border);
+  stroke-width: 1px;
+  rx: 4px;
+  ry: 4px;
+}
+
+.diagram .dg-block__tab {
+  fill: var(--dg-block-tab-bg);
+  stroke: var(--dg-block-border);
+  stroke-width: 1px;
+}
+
+/* Not uppercased: the same class carries both the frame kind ("loop") and the
+ * author's own condition text, which would shout. */
+.diagram .dg-block__label {
+  fill: var(--dg-label-fg);
+  font-size: calc(var(--dg-font-size) * 0.88);
+  font-weight: 650;
+  letter-spacing: 0.02em;
+}
+
+.diagram .dg-block__divider {
+  fill: none;
+  stroke: var(--dg-block-border);
+  stroke-width: 1px;
+  stroke-dasharray: 4 4;
+}
+
+/* Dark. Everything else is token-derived and has already flipped by this point;
+ * these three do not survive the flip unaided. Two byte-identical blocks, for
+ * the reason given in the file header. */
+
+:root[data-theme='dark'] .diagram {
+  /* --bg-subtle is three units off --bg in dark, which is not a card. Nodes go
+   * up to the raised surface instead of down to the recessed one. */
+  --dg-node-bg: var(--surface-2);
+  --dg-edge: color-mix(in srgb, var(--text-muted) 72%, var(--border-strong));
+  --dg-activation-bg: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .diagram {
+    --dg-node-bg: var(--surface-2);
+    --dg-edge: color-mix(in srgb, var(--text-muted) 72%, var(--border-strong));
+    --dg-activation-bg: color-mix(in srgb, var(--accent) 22%, transparent);
+  }
+}
+
+/* §20 already blankets transitions site-wide; this keeps the diagram section
+ * self-contained, so lifting it into a user stylesheet loses nothing. */
+@media (prefers-reduced-motion: reduce) {
+  .diagram .dg-node__shape {
+    transition: none;
+  }
+}
+
+/* Forced colours: the OS owns the palette, so hand every diagram token over to a
+ * system colour rather than letting the UA guess at SVG fills. */
+@media (forced-colors: active) {
+  .diagram {
+    --dg-node-bg: Canvas;
+    --dg-node-border: CanvasText;
+    --dg-node-fg: CanvasText;
+    --dg-edge: CanvasText;
+    --dg-edge-label-bg: Canvas;
+    --dg-subgraph-bg: Canvas;
+    --dg-subgraph-border: CanvasText;
+    --dg-subgraph-fg: CanvasText;
+    --dg-note-bg: Canvas;
+    --dg-note-border: CanvasText;
+    --dg-accent: Highlight;
+    --dg-lifeline: CanvasText;
+    --dg-activation-bg: Highlight;
+    --dg-activation-border: CanvasText;
+    --dg-block-border: CanvasText;
+    --dg-block-tab-bg: Canvas;
+    --dg-label-fg: CanvasText;
+    border-color: CanvasText;
+    forced-color-adjust: none;
+  }
+
+  /* Same specificity as the semantic rules above, later in source order. */
+  .diagram :is(.node--primary, .node--secondary, .node--success, .node--warning,
+    .node--danger, .node--info, .node--muted) {
+    --dg-node-bg: Canvas;
+    --dg-node-fg: CanvasText;
+    --dg-node-border: CanvasText;
+  }
+
+  .diagram .dg-subgraph[data-depth] > .dg-subgraph__box {
+    fill: Canvas;
+  }
+}
+
+/* Print: the tints are all built on translucency and vanish onto white, so the
+ * whole palette is restated in ink. Nothing here relies on background printing —
+ * SVG fills are content, not decoration, so they survive the default settings. */
+@media print {
+  .diagram {
+    --dg-node-bg: #ffffff;
+    --dg-node-border: #444444;
+    --dg-node-fg: #000000;
+    --dg-edge: #333333;
+    --dg-edge-label-bg: #ffffff;
+    --dg-subgraph-bg: #f4f4f4;
+    --dg-subgraph-border: #999999;
+    --dg-subgraph-fg: #333333;
+    --dg-accent: #000000;
+    --dg-note-bg: #f2f2f2;
+    --dg-note-border: #999999;
+    --dg-lifeline: #666666;
+    --dg-activation-bg: #e4e4e4;
+    --dg-activation-border: #888888;
+    --dg-block-border: #888888;
+    --dg-block-tab-bg: #f2f2f2;
+    --dg-label-fg: #333333;
+    background: #ffffff;
+    border-color: #cccccc;
+    /* A scrollport prints as a clipped box; let the page take the full drawing
+     * and let max-width scale it to the sheet. */
+    overflow: visible;
+    break-inside: avoid;
+  }
+
+  .diagram__svg {
+    max-width: 100%;
+  }
+
+  .diagram .dg-subgraph[data-depth] > .dg-subgraph__box {
+    fill: #f4f4f4;
+  }
+
+  .diagram .dg-node:hover .dg-node__shape {
+    stroke: var(--dg-node-border);
+  }
+}

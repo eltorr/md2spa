@@ -163,6 +163,41 @@ function readThemeAsset(name, logger) {
 }
 
 /**
+ * `theme.diagram` keys and the custom property each one rebinds, in emission order.
+ * @type {ReadonlyArray<readonly [string, string]>}
+ */
+const DIAGRAM_VARIABLES = Object.freeze([
+  ['nodeBg', '--dg-node-bg'],
+  ['nodeBorder', '--dg-node-border'],
+  ['nodeFg', '--dg-node-fg'],
+  ['edge', '--dg-edge'],
+  ['accent', '--dg-accent'],
+  ['fontSize', '--dg-font-size'],
+]);
+
+/**
+ * A config-supplied CSS value, reduced to something that cannot escape its declaration.
+ *
+ * The value lands inside a stylesheet the build signs its name to, so a stray `}` or `</style>`
+ * would let a config file write arbitrary rules -- or arbitrary markup, once the sheet is
+ * inlined. Everything that could end the declaration, the block or the element is dropped
+ * rather than escaped: there is no legitimate colour or length that needs any of it.
+ *
+ * @param {unknown} raw
+ * @returns {string} the sanitised value, or `''` when nothing usable is left
+ */
+function cssValue(raw) {
+  if (typeof raw !== 'string') return '';
+  return raw
+    .replace(/[;{}<>\\]/g, '')
+    .replace(/\/\*|\*\//g, '')
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .trim()
+    .slice(0, 200)
+    .trim();
+}
+
+/**
  * Substitute the configurable custom properties into the stylesheet.
  *
  * The generated block replaces `THEME_PLACEHOLDER` when the sheet declares one, and is
@@ -193,6 +228,20 @@ export function applyThemeVariables(css, config) {
       '@media (prefers-color-scheme: dark) {\n'
       + `  :root:not([data-theme='light']) {\n    --accent: ${theme.accentDark};\n  }\n}`,
     );
+  }
+
+  // `theme.diagram` rebinds the `--dg-*` palette the diagram stylesheet reads. The keys are
+  // walked from a fixed list rather than from `Object.entries`, so the emitted CSS depends on
+  // the config's *values* and never on its key order -- two builds of the same site have to be
+  // byte-identical.
+  const diagram = theme.diagram || {};
+  const diagramDeclarations = [];
+  for (const [key, property] of DIAGRAM_VARIABLES) {
+    const value = cssValue(diagram[key]);
+    if (value) diagramDeclarations.push(`  ${property}: ${value};`);
+  }
+  if (diagramDeclarations.length) {
+    blocks.push(`.diagram {\n${diagramDeclarations.join('\n')}\n}`);
   }
 
   if (blocks.length === 0) return css.split(THEME_PLACEHOLDER).join('');

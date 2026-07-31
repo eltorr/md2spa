@@ -46,6 +46,7 @@ three accept absolute paths.
 | `spa` | boolean | `true` | Emit the client-side router and one JSON payload per route. |
 | `search` | boolean | `true` | Build `search-index.json` and enable the search modal. |
 | `highlight` | boolean | `true` | Run the build-time syntax highlighter. |
+| `mermaid` | boolean | `true` | Draw `mermaid` fences as inline SVG. `false` leaves them as code blocks. |
 | `strict` | boolean | `false` | Treat warnings as errors. `--strict` sets this per run. |
 | `buildDate` | string or null | `null` | An ISO date string to show in the footer. `null` omits it. |
 
@@ -102,6 +103,37 @@ Content-Security-Policy.
 
 Pick `accent` and `accentDark` as a pair. The light one has to reach 4.5:1 against white,
 the dark one against near-black. This site uses `#0b6bcb` and `#7cc4ff`.
+
+## `theme.diagram`
+
+An optional block of overrides for [diagrams](../writing/diagrams.md#theming). Every key
+is optional; an absent key leaves the diagram inheriting the theme.
+
+| Key | Type | Custom property | Effect |
+|:---|:---|:---|:---|
+| `theme.diagram.nodeBg` | string | `--dg-node-bg` | Node fill. Defaults to `--bg-subtle`. |
+| `theme.diagram.nodeBorder` | string | `--dg-node-border` | Node stroke. Defaults to `--border-strong`. |
+| `theme.diagram.nodeFg` | string | `--dg-node-fg` | Label text. Defaults to `--text`. |
+| `theme.diagram.edge` | string | `--dg-edge` | Edge lines and arrowheads. Defaults to `--border-strong`. |
+| `theme.diagram.accent` | string | `--dg-accent` | Activation bars, dividers and other highlights. Defaults to `--accent`. |
+| `theme.diagram.fontSize` | string | `--dg-font-size` | Base label size, as a CSS length. Defaults to `--fs-sm`. |
+
+```json
+{
+  "theme": {
+    "diagram": {
+      "nodeBg": "#f6f8fa",
+      "nodeBorder": "#c9d1d9",
+      "edge": "#8b949e"
+    }
+  }
+}
+```
+
+These values apply to both themes, so a literal colour has to hold contrast in light and
+dark. Where it cannot, leave the block out and override the `--dg-*` properties under each
+theme's selector in your own stylesheet instead. There is no `diagramDark` key, precisely
+so that the theme-aware default stays the easy path.
 
 ## `repo`
 
@@ -205,6 +237,7 @@ Everything below is what you get with no config file at all.
   "spa": true,
   "search": true,
   "highlight": true,
+  "mermaid": true,
   "strict": false,
   "buildDate": null,
   "toc": { "minDepth": 2, "maxDepth": 3 },

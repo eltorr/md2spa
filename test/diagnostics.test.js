@@ -278,6 +278,14 @@ const COVERED_ELSEWHERE = new Map([
   ['NAV001', 'test/route.test.js'],
   ['NAV002', 'test/route.test.js'],
   ['HTM001', 'test/build.test.js (verifyHtml)'],
+  // The mermaid rules need a diagram to fire, and the `bad`/`good` pair this table is built
+  // from cannot express "this line of flowchart is unparseable" without duplicating half of
+  // SPEC-MERMAID. They get a test each, by code, in the diagram suite.
+  ['MD080', 'test/mermaid.test.js'],
+  ['MD081', 'test/mermaid.test.js'],
+  ['MD082', 'test/mermaid.test.js'],
+  ['MD083', 'test/mermaid.test.js'],
+  ['MD084', 'test/mermaid.test.js'],
 ]);
 
 /** A document that exercises most of the dialect and must be diagnostic-free. */

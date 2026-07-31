@@ -28,6 +28,7 @@ import {
 import { createBag } from './diagnostics.js';
 import { createSlugRegistry, slugify } from './slug.js';
 import { highlight, isKnownLanguage } from './highlight.js';
+import { renderMermaid } from './mermaid/index.js';
 
 /**
  * Recursion ceiling. A malformed document can nest blockquotes or lists thousands deep;
@@ -94,6 +95,10 @@ function createContext(options = {}) {
     images: [],
     headings: [],
     footnotes: { order: [], defs: new Map(), slugs: new Map(), refs: new Map() },
+    // Diagrams drawn so far in this document. Marker ids are namespaced `d<N>-` off it, so
+    // two diagrams on one page cannot collide on an id and the numbering is a pure function
+    // of the source rather than of a module-level counter.
+    diagramCount: 0,
     // Open-element stack shared by every raw-HTML node in the document: Markdown delivers
     // `<kbd>Ctrl</kbd>` as three separate nodes, so balance is a document-level property.
     htmlStack: [],
@@ -508,6 +513,14 @@ function renderCode(node, ctx) {
   const lang = node.lang ? String(node.lang).trim() : '';
   const enabled = ctx.config.highlight !== false;
 
+  if (MERMAID_LANGS.has(lang.toLowerCase()) && ctx.config.mermaid !== false) {
+    const diagram = renderDiagram(node, value, ctx);
+    if (diagram !== null) return diagram;
+    // `null` means "could not draw it" -- the diagnostics are already in the bag and the
+    // author's source falls through to the ordinary code-block path below, so the page is
+    // still readable and still shows them what they wrote.
+  }
+
   if (lang && enabled && !isKnownLanguage(lang)) {
     ctx.bag.add('MD022', node,
       `code fence language \`${lang}\` is not recognised`,
@@ -529,6 +542,74 @@ function renderCode(node, ctx) {
   const figureAttrs = attrs({ class: 'code', 'data-lang': tag });
 
   return `<figure${figureAttrs}>${caption}<pre class="code__pre"><code${codeAttrs}>${html}</code></pre></figure>`;
+}
+
+/** Fence languages that mean "this is a diagram, draw it" (SPEC-MERMAID 9). */
+const MERMAID_LANGS = new Set(['mermaid', 'mmd']);
+
+/**
+ * Draw one `mermaid` fence, or decide it cannot be drawn.
+ *
+ * The diagram counter advances for every *attempt*, not only for every success. Numbering by
+ * attempt keeps a diagram's id namespace stable when an unrelated diagram earlier on the page
+ * starts or stops rendering, which is what stops an edit to one figure from rewriting the ids
+ * of every figure after it.
+ *
+ * @param {object} node the `code` node
+ * @param {string} value the fence body, verbatim
+ * @param {RenderContext} ctx
+ * @returns {string|null} the `<figure class="diagram">`, or `null` to fall back to code
+ */
+function renderDiagram(node, value, ctx) {
+  ctx.diagramCount += 1;
+  const index = ctx.diagramCount;
+
+  let result;
+  try {
+    result = renderMermaid(value, {
+      file: ctx.file,
+      // `node.line` is the opening fence; the body starts on the line after it, and that is
+      // the line the diagram's own coordinates are relative to.
+      line: (Number(node.line) || 1) + 1,
+      column: Number(node.column) || 1,
+      config: ctx.config,
+      index,
+    });
+  } catch {
+    // renderMermaid documents that it never throws. If that ever stops being true, a diagram
+    // must still not be able to take down a build.
+    return null;
+  }
+
+  if (Array.isArray(result?.diagnostics) && result.diagnostics.length) {
+    ctx.bag.absorb(result.diagnostics);
+  }
+  if (typeof result?.svg !== 'string' || result.svg === '') return null;
+  return markWideDiagram(result.svg);
+}
+
+/**
+ * Intrinsic width past which a diagram scrolls rather than scaling down.
+ *
+ * The content column is ~46rem. `max-width: 100%` on its own silently scales a wide diagram
+ * to fit it, and a 1291px flowchart squeezed into 688px draws its 13px labels at under 7px --
+ * technically visible, actually unreadable. Legibility gives out around 0.85 scale, which is
+ * where this threshold comes from; past it the figure scrolls instead, exactly as a wide
+ * table already does.
+ */
+const WIDE_DIAGRAM_PX = 820;
+
+/**
+ * Flag a figure whose SVG is too wide to scale down legibly, so the stylesheet can let it
+ * keep its intrinsic width and scroll inside the figure instead.
+ *
+ * @param {string} svg the complete `<figure class="diagram">…</figure>` fragment
+ * @returns {string}
+ */
+function markWideDiagram(svg) {
+  const width = Number((/<svg[^>]*\swidth="(\d+(?:\.\d+)?)"/.exec(svg) || [])[1]);
+  if (!Number.isFinite(width) || width <= WIDE_DIAGRAM_PX) return svg;
+  return svg.replace(/^(\s*<figure\b)/, '$1 data-wide="true"');
 }
 
 /**

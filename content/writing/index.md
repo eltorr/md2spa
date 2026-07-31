@@ -21,9 +21,10 @@ next year, with no configuration to reproduce.
 | GitHub alerts (`> [!NOTE]`) | <span class="badge badge--ok">Supported</span> |
 | MkDocs admonitions (`!!! note`) | <span class="badge badge--ok">Supported</span> |
 | Raw HTML, allowlisted tags | <span class="badge badge--ok">Supported</span> |
+| Mermaid flowcharts and sequence diagrams | <span class="badge badge--info">Subset</span> |
 | Bare-URL linkification | <span class="badge badge--info">With a hint</span> |
 | Definition lists | <span class="badge badge--none">Use raw HTML</span> |
-| Math, Mermaid, tabs, snippets | <span class="badge badge--none">Not supported</span> |
+| Math, tabs, snippets | <span class="badge badge--none">Not supported</span> |
 
 Anything outside the set parses as literal text. Where the text looks like a failed
 attempt at a supported construct, the linter says so rather than silently swallowing it.
@@ -33,6 +34,9 @@ attempt at a supported construct, the linter says so rather than silently swallo
 - [Markdown syntax](markdown-syntax.md) — every construct, with live examples.
 - [Admonitions](admonitions.md) — both callout syntaxes and all the kinds.
 - [Code blocks](code-blocks.md) — fences, languages, titles and highlighting.
+- [Diagrams](diagrams.md) — mermaid fences drawn to SVG at build time.
+- [Diagram examples](diagram-examples.md) — worked architecture, pipeline, network and
+  authorization diagrams.
 - [Tables](tables.md) — alignment, wrapping and support matrices.
 - [Links and assets](links-and-assets.md) — relative links, anchors and images.
 - [Frontmatter](frontmatter.md) — the metadata block and which keys are checked.

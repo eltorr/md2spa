@@ -479,6 +479,30 @@ const MARKDOWN_RULES = [
   { t: 'builtin', r: /<https?:[^>\s]*>|\[\^[^\]\n]+\]/ },
 ];
 
+/**
+ * Mermaid. Diagram fences are normally drawn as SVG by `markdown/mermaid/`, so this rule set
+ * only ever runs on the fallback path -- an unsupported diagram type, or a diagram the parser
+ * could not read. Both cases show the author their own source, and highlighting the arrows
+ * and the diagram keyword is what makes that source readable rather than a grey wall.
+ */
+const MERMAID_RULES = [
+  { t: 'com', r: /%%(?!\{)[^\n]*/ },
+  { t: 'meta', r: /%%\{[\s\S]*?\}%%/ },
+  { t: 'str', r: /"(?:\\[\s\S]|[^"\\])*"/ },
+  {
+    t: 'kw',
+    r: /\b(?:graph|flowchart|sequenceDiagram|classDiagram|stateDiagram(?:-v2)?|erDiagram|journey|gantt|pie|gitGraph|mindmap|timeline|quadrantChart|requirementDiagram|C4Context)\b/,
+  },
+  {
+    t: 'builtin',
+    r: /\b(?:subgraph|end|direction|participant|actor|activate|deactivate|autonumber|loop|alt|else|opt|par|and|critical|option|break|rect|Note|note|over|left of|right of|classDef|class|click|style|linkStyle|callback|href)\b/,
+  },
+  // Arrows and link operators, longest first so `-.->` never matches as `-` then `.`.
+  { t: 'op', r: /-{2,3}[xo>|]|-\.-+[>xo]?|={2,3}[>xo]?|<?-{2,}>?|--[|)]|-{1,2}\)|->{1,2}\+?|-{1,2}>>|~{3}|\.-+>|:{3}/ },
+  { t: 'num', r: /\b\d+(?:\.\d+)?\b/ },
+  { t: 'punc', r: /[[\](){}|&;,]/ },
+];
+
 /** `diff` is line-oriented; a token scanner is the wrong tool for it. */
 const DIFF_LINE_RULES = [
   [/^(?:diff |index |similarity |rename |new file|deleted file|old mode|new mode)/, 'meta'],
@@ -529,6 +553,9 @@ const LANGUAGE_DEFS = [
   { id: 'dockerfile', aliases: ['docker', 'containerfile'], rules: DOCKERFILE_RULES },
   { id: 'makefile', aliases: ['make', 'mk', 'mak'], rules: MAKEFILE_RULES },
   { id: 'markdown', aliases: ['md', 'mdx', 'mkd'], rules: MARKDOWN_RULES },
+  // Registered so that a `mermaid` fence is never an "unknown language" (MD022): the
+  // renderer draws it, and on the fallback path the highlighter reads it.
+  { id: 'mermaid', aliases: ['mmd'], rules: MERMAID_RULES },
   { id: 'plaintext', aliases: ['text', 'txt', 'plain', 'none', 'output', 'log'], plain: true },
 ];
 

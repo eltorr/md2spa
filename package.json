@@ -1,6 +1,6 @@
 {
   "name": "md2spa",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Zero-dependency Markdown -> static SPA documentation site generator. Folder structure is the navigation.",
   "type": "module",
   "license": "MIT",
