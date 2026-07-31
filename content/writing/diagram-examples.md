@@ -6,9 +6,10 @@ order: 8
 
 # Diagram examples
 
-Every diagram here is rendered from the Mermaid fence printed above it, at build time, into
-inline SVG. Nothing on this page ships JavaScript. See [Diagrams](diagrams.md) for the
-supported syntax and [theming](diagrams.md#theming).
+Every diagram on this page is drawn at build time into inline SVG, so the page ships no
+JavaScript for them and they render with JavaScript disabled. The first example prints its
+Mermaid source alongside the result; the rest show only the diagram. See
+[Diagrams](diagrams.md) for the supported syntax and [theming](diagrams.md#theming).
 
 These are deliberately realistic rather than minimal — the point is to show what the layout
 engine does with the density a real system produces.
